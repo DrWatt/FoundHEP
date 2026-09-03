@@ -1,0 +1,37 @@
+[project]
+name = "FoundHEP"
+version = "0.0.1"
+description = "Foundational Model for HEP data compression"
+readme = "README.md"
+license = "Apache-2.0"
+license-files = ["LICENSE"]
+requires-python = ">=3.10"
+dependencies = [
+    "numpy",
+    "scipy",
+    "tensorflow",
+]
+keywords = [
+    "machine-learning",
+    "high-energy-physics",
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Science/Research",
+    "Programming Language :: Python :: 3",
+    "Topic :: Scientific/Engineering :: Physics",
+]
+
+[project.optional-dependencies]
+docs = [
+    "sphinx>=8,<10",
+    "numpydoc>=1.8,<2",
+    "sphinx-design>=0.6,<1",
+    "pydata-sphinx-theme>=0.16,<1",
+]
+
+[project.urls]
+Homepage = "https://github.com/DrWatt/FoundHEP"
+Issues = "https://github.com/DrWatt/FoundHEP/issues"
+Repository = "https://github.com/DrWatt/FoundHEP.git"
+
