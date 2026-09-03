@@ -1,6 +1,5 @@
-import numpy as np
-import tensorflow as tf
 import keras
+from .custom_layers import HeadScaledMultiHeadAttention
 
 
 class TransEncoder(keras.layers.Layer):
@@ -8,7 +7,7 @@ class TransEncoder(keras.layers.Layer):
         super().__init__(**kwargs)
         key_dim = out_dim // num_heads
         self.ctxt_dim = ctxt_dim
-        self.atn_head = keras.layers.MultiHeadAttention(num_heads = num_heads, key_dim = key_dim, dropout = dropout)
+        self.atn_head = HeadScaledMultiHeadAttention(num_heads = num_heads, key_dim = key_dim, dropout = dropout)
         self.ff_step = keras.layers.Dense(dense_nodes, activation = "silu")
         self.transout = keras.layers.Dense(out_dim)
 
@@ -18,7 +17,7 @@ class TransEncoder(keras.layers.Layer):
         self.norm_layer_ff_1 = keras.layers.LayerNormalization()
         self.norm_layer_ff_2 = keras.layers.LayerNormalization()
 
-        #self.dropout_1 = keras.layers.Dropout(dropout)
+        self.dropout_1 = keras.layers.Dropout(dropout)
         self.dropout_2 = keras.layers.Dropout(dropout)
 
     def call(self, inputs, attention_mask = None, training = False):
@@ -30,11 +29,11 @@ class TransEncoder(keras.layers.Layer):
                             training = training)
         norm_atn = self.norm_layer_atn_2(atn)
         x = inputs + norm_atn
-        #x = self.dropout_1(x)
+        x = self.dropout_1(x)
         ff = self.norm_layer_ff_1(x)
         ff = self.ff_step(ff)
         ff = self.norm_layer_ff_2(ff)
-        ff = self.dropout_2(ff)
         ff = self.transout(ff)
+        ff = self.dropout_2(ff)
 
         return x + ff
