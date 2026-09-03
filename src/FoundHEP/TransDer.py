@@ -45,7 +45,7 @@ class TransDecoder(keras.layers.Layer):
         super().__init__(**kwargs)
         key_dim = out_dim // num_heads
         self.ctxt_dim = ctxt_dim
-        self.atn_self = HeadScaledMultiHeadAttention(num_heads = num_heads, output_shape = out_dim key_dim = key_dim, dropout = dropout)
+        self.atn_self = HeadScaledMultiHeadAttention(num_heads = num_heads, output_shape = out_dim, key_dim = key_dim, dropout = dropout)
         self.atn_cross = HeadScaledMultiHeadAttention(num_heads = num_heads, output_shape = out_dim, key_dim = key_dim, dropout = dropout)
         self.ff_step = keras.layers.Dense(dense_nodes, activation = "silu")
         self.transout = keras.layers.Dense(out_dim)
@@ -91,6 +91,6 @@ class TransDecoder(keras.layers.Layer):
         ff = self.ff_step(ff)
         ff = self.norm_layer_ff_2(ff)
         ff = self.transout(ff)
-        ff = self.dropout_2(ff training = training)
+        ff = self.dropout_2(ff, training = training)
 
         return x + ff
