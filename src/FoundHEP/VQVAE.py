@@ -15,7 +15,7 @@ class VectorQuantizer(keras.layers.Layer):
         self.beta = beta ## The `beta` parameter is best kept between [0.25, 2] as per the paper.
         
         # Initialize the embeddings codebook
-        self. embeddings = self.add_weight(shape = (self.embedding_dim, self.num_embeddings),
+        self.embeddings = self.add_weight(shape = (self.embedding_dim, self.num_embeddings),
                                             initializer = "random_uniform",
                                             trainable = True,
                                             name = "embeddings_vqvae")
@@ -48,6 +48,50 @@ class VectorQuantizer(keras.layers.Layer):
 
         # RETURN BOTH: The quantized tensor and the indices
         return [quantized, encoding_indices]
+
+
+# Class from https://github.com/google-deepmind/sonnet/blob/v2/sonnet/src/nets/vqvae.py
+class VectorQuantizerEMA(keras.layers.Layer):
+    def __init__(self,
+                 embedding_dim,
+                 num_embeddings,
+                 commitment_cost,
+                 decay,
+                 epsilon = 1e-5,
+                 **kwargs):
+        super().__init__(**kwargs)
+        self.embedding_dim = embedding_dim
+        self.num_embeddings = num_embeddings
+        if not 0 <= decay <= 1:
+            raise ValueError("Decay must be in range [0, 1]")
+        self.decay = decay
+        self.commitment_cost = commitment_cost
+        self.epsilon = epsilon
+
+        embedding_shape = [embedding_dim, num_embeddings]
+
+        embedding_initializer = keras.initializers.VarianceScaling(
+                scale = 1.0,
+                mode = "fan_in",
+                distribution = "uniform")
+        # Initialize the embeddings codebook
+        self.embeddings = self.add_weight(shape = (self.embedding_dim, self.num_embeddings),
+                                            initializer = embedding_initializer,
+                                            trainable = False,
+                                            name = "embeddings_vqvae")
+
+        self.ema_cluster_size = self.add_weight(shape = (self.num_embeddings,),
+                                                initializer = "zeros",
+                                                trainable = False,
+                                                name = "ema_cluster_size")
+        self.ema_dw = self.add_weight(shape = (self.embedding_dim, self.num_embeddings),
+                                      initializer = "zeros",
+                                      trainable = False,
+                                      name = "ema_dw")
+
+
+
+
 
 
 
