@@ -3,98 +3,8 @@ import numpy as np
 import keras
 import os
 from .TransDer import TransEncoder, TransDecoder
+from .vquant import VectorQuantizer, VectorQuantizerEMA
 #os.environ["KERAS_BACKEND"] = "tensorflow"
-
-# Class from https://keras.io/examples/generative/vq_vae/ and https://arxiv.org/pdf/1711.00937
-
-class VectorQuantizer(keras.layers.Layer):
-    def __init__(self, num_embeddings, embedding_dim, beta = 0.25, **kwargs):
-        super().__init__(**kwargs)
-        self.embedding_dim = embedding_dim
-        self.num_embeddings = num_embeddings
-        self.beta = beta ## The `beta` parameter is best kept between [0.25, 2] as per the paper.
-        
-        # Initialize the embeddings codebook
-        self.embeddings = self.add_weight(shape = (self.embedding_dim, self.num_embeddings),
-                                            initializer = "random_uniform",
-                                            trainable = True,
-                                            name = "embeddings_vqvae")
-        
-
-
-    def get_code_indices(self, flattened_inputs):
-        # Calculate the L2-normalized distance
-        similarity = keras.ops.matmul(flattened_inputs, self.embeddings)
-        distances = (keras.ops.sum(keras.ops.square(flattened_inputs), axis = 1, keepdims = True) + keras.ops.sum(keras.ops.square(self.embeddings), axis = 0) - 2 * similarity)
-        return keras.ops.argmin(distances, axis = 1)
-
-    def call(self, inputs):
-        input_shape = keras.ops.shape(inputs)
-        flattened = keras.ops.reshape(inputs, [-1, self.embedding_dim])
-
-        encoding_indices = self.get_code_indices(flattened)
-        # Reshape indices to match spatial dimensions (e.g., 7x7)
-        encoding_indices = keras.ops.reshape(encoding_indices, input_shape[:-1])
-
-        encodings = keras.ops.one_hot(encoding_indices, self.num_embeddings)
-        quantized = keras.ops.matmul(encodings, keras.ops.transpose(self.embeddings))
-        quantized = keras.ops.reshape(quantized, input_shape)
-
-        commitment_loss = keras.ops.mean((keras.ops.stop_gradient(quantized) - inputs) ** 2)
-        codebook_loss = keras.ops.mean((quantized - keras.ops.stop_gradient(inputs)) **2)
-        self.add_loss(self.beta * commitment_loss + codebook_loss)
-
-        quantized = x + keras.ops.stop_gradient(quantized - x)
-
-        # RETURN BOTH: The quantized tensor and the indices
-        return [quantized, encoding_indices]
-
-
-# Class from https://github.com/google-deepmind/sonnet/blob/v2/sonnet/src/nets/vqvae.py
-class VectorQuantizerEMA(keras.layers.Layer):
-    def __init__(self,
-                 embedding_dim,
-                 num_embeddings,
-                 commitment_cost,
-                 decay,
-                 epsilon = 1e-5,
-                 **kwargs):
-        super().__init__(**kwargs)
-        self.embedding_dim = embedding_dim
-        self.num_embeddings = num_embeddings
-        if not 0 <= decay <= 1:
-            raise ValueError("Decay must be in range [0, 1]")
-        self.decay = decay
-        self.commitment_cost = commitment_cost
-        self.epsilon = epsilon
-
-        embedding_shape = [embedding_dim, num_embeddings]
-
-        embedding_initializer = keras.initializers.VarianceScaling(
-                scale = 1.0,
-                mode = "fan_in",
-                distribution = "uniform")
-        # Initialize the embeddings codebook
-        self.embeddings = self.add_weight(shape = (self.embedding_dim, self.num_embeddings),
-                                            initializer = embedding_initializer,
-                                            trainable = False,
-                                            name = "embeddings_vqvae")
-
-        self.ema_cluster_size = self.add_weight(shape = (self.num_embeddings,),
-                                                initializer = "zeros",
-                                                trainable = False,
-                                                name = "ema_cluster_size")
-        self.ema_dw = self.add_weight(shape = (self.embedding_dim, self.num_embeddings),
-                                      initializer = "zeros",
-                                      trainable = False,
-                                      name = "ema_dw")
-
-
-
-
-
-
-
 
 class Sampling(keras.layers.Layer):
     def __init__(self, **kwargs):
@@ -154,7 +64,7 @@ class VQVAE(keras.Model):
         print(data[0])
         self.original_dim = original_dim
 #        self.encoder = Encoder()
-        self.quantizer = VectorQuantizer(num_embeddings = 2048, embedding_dim = latent_dim)
+        self.quantizer = VectorQuantizerEMA(num_embeddings = 2048, embedding_dim = latent_dim, commitment_cost = 0.25, decay = 0.9)
 #        self.decoder = Decoder(original_dim)
 #        self.sampling = Sampling()
         self.transencoder = TransEncoder()
