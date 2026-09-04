@@ -161,7 +161,8 @@ class VectorQuantizerEMA(keras.layers.Layer):
 
         encodings = keras.ops.one_hot(encoding_indices, self.num_embeddings)
 
-        quantized = self.quantize(encoding_indices)
+        quantized = keras.ops.matmul(encodings, keras.ops.transpose(self.embeddings))
+        quantized = keras.ops.reshape(quantized, input_shape)
         e_latent_loss = keras.ops.mean((keras.ops.stop_gradient(quantized) - inputs) ** 2)
         loss = keras.ops.cast(self.commitment_cost, e_latent_loss.dtype) * e_latent_loss
         self.add_loss(loss)
@@ -190,7 +191,6 @@ class VectorQuantizerEMA(keras.layers.Layer):
                 "perplexity": perplexity,
                 "encodings": encodings,
                 "encoding_indices": encoding_indices,
-                "distances": distances
                 }
 
     def build(self, input_shape):
@@ -211,6 +211,7 @@ class VectorQuantizerEMA(keras.layers.Layer):
 
     def quantize(self, encoding_indices):
         """Looks up codebook vectors for arbitrary-shaped indices."""
+        encoding_indices = keras.ops.cast(encoding_indices, "int32")
 
         # Convert codebook from:
         #     (embedding_dim, num_embeddings)
