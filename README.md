@@ -111,6 +111,7 @@ FoundHEP/
         ├── __init__.py
         ├── TransDer.py
         ├── VQVAE.py
+        ├── vquant.py
         └── custom_layers.py
 ```
 
