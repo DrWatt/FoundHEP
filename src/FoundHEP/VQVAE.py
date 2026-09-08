@@ -53,32 +53,32 @@ class Decoder(keras.layers.Layer):
 
 
 
-
+@keras.saving.register_keras_serializable()
 class VQVAE(keras.Model):
     
-    def __init__(self, original_dim, hidden_dim= 64, latent_dim = 32,train_variance=1.0, n_transf = 1, name = "vae", **kwargs):
+    def __init__(self, original_dim, hidden_dim= 64, latent_dim = 32, num_heads = 16, train_variance=1.0, n_transf = 1, name = "vae", **kwargs):
         super().__init__(name = name, **kwargs)
-        #data = np.load("/home/marco/FoundHEP/dataset.npy")
-        #
-        #print(data.shape)
-        #print(data[0])
-        self.original_dim = original_dim
-        self.train_variance = train_variance
-#        self.encoder = Encoder()
-        self.encoder_input = keras.layers.Dense(hidden_dim)
-        self.quantizer = VectorQuantizerEMA(num_embeddings = 2048, embedding_dim = latent_dim, commitment_cost = 0.25, decay = 0.9)
-#        self.quantizer = VectorQuantizer(num_embeddings = 2048, embedding_dim = latent_dim, beta = 0.25)
-#        self.decoder = Decoder(original_dim)
-#        self.sampling = Sampling()
+        self.original_dim = int(original_dim)
+        self.hidden_dim = int(hidden_dim)
+        self.latent_dim = int(latent_dim)
+        self.num_heads = int(num_heads)
+        self.train_variance = float(train_variance)
+        self.n_transf = int(n_transf)
+
+
+
+        self.encoder_input = keras.layers.Dense(self.hidden_dim)
+        self.quantizer = VectorQuantizerEMA(num_embeddings = 2048, embedding_dim = self.latent_dim, commitment_cost = 0.25, decay = 0.9)
+#        self.quantizer = VectorQuantizer(num_embeddings = 2048, embedding_dim = self.latent_dim, beta = 0.25)
         self.transencoder = []
         self.transdecoder = []
-        for i in range(n_transf):
-            self.transencoder.append(TransEncoder(out_dim = hidden_dim, num_heads = 16, name = "transEncoder_" +str(i)))
-            self.transdecoder.append(TransEncoder(out_dim = hidden_dim, num_heads = 16, name = "transDecoder_" + str(i)))
+        for i in range(self.n_transf):
+            self.transencoder.append(TransEncoder(out_dim = self.hidden_dim, num_heads = self.num_heads, name = "transEncoder_" +str(i)))
+            self.transdecoder.append(TransEncoder(out_dim = self.hidden_dim, num_heads = self.num_heads, name = "transDecoder_" + str(i)))
 
-        self.to_latent = keras.layers.Dense(latent_dim)
-        self.decoder_input = keras.layers.Dense(hidden_dim)
-        self.output_projection = keras.layers.Dense(original_dim)
+        self.to_latent = keras.layers.Dense(self.latent_dim)
+        self.decoder_input = keras.layers.Dense(self.hidden_dim)
+        self.output_projection = keras.layers.Dense(self.original_dim)
 
 
 
@@ -167,7 +167,18 @@ class VQVAE(keras.Model):
 
 
 
-
+    def get_config(self):
+        config = super().get_config()
+        config.update(
+                {
+                    "original_dim": self.original_dim,
+                    "hidden_dim": self.hidden_dim,
+                    "latent_dim": self.latent_dim,
+                    "num_heads": self.num_heads,
+                    "train_variance": self.train_variance,
+                    "n_transf": self.n_transf
+                    })
+        return config
 
 
 

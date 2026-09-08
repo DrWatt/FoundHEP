@@ -48,6 +48,16 @@ class VectorQuantizer(keras.layers.Layer):
                 "encoding_indices": encoding_indices,
                 }
 
+    def get_config(self):
+        config = super().get_config()
+        config.update(
+                {
+                    "num_embeddings": self.num_embeddings,
+                    "embedding_dim": self.embedding_dim,
+                    "beta": self.beta
+                })
+        return config
+
 @keras.saving.register_keras_serializable()
 class ExponentialMovingAverage(keras.layers.Layer):
     def __init__(self, decay, shape, **kwargs):
@@ -236,3 +246,15 @@ class VectorQuantizerEMA(keras.layers.Layer):
         similarity = keras.ops.matmul(flattened_inputs, self.embeddings)
         distances = (keras.ops.sum(keras.ops.square(flattened_inputs), axis = 1, keepdims = True) + keras.ops.sum(keras.ops.square(self.embeddings), axis = 0) - 2 * similarity)
         return keras.ops.argmin(distances, axis = 1)
+    
+    def get_config(self):
+        config = super().get_config()
+        config.update(
+                {
+                    "embedding_dim": self.embedding_dim,
+                    "num_embeddings": self.num_embeddings,
+                    "commitment_cost": self.commitment_cost,
+                    "decay": self.decay,
+                    "epsilon": self.epsilon
+                    })
+        return config

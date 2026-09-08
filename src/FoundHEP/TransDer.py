@@ -6,11 +6,19 @@ from .custom_layers import HeadScaledMultiHeadAttention
 class TransEncoder(keras.layers.Layer):
     def __init__(self, ctxt_dim = 0, num_heads = 16, out_dim = 32, dropout = 0.0, dense_nodes = 128, **kwargs):
         super().__init__(**kwargs)
-        key_dim = out_dim // num_heads
-        self.ctxt_dim = ctxt_dim
-        self.atn_self = HeadScaledMultiHeadAttention(num_heads = num_heads, output_shape = out_dim, key_dim = key_dim, dropout = dropout)
-        self.ff_step = keras.layers.Dense(dense_nodes, activation = "silu")
-        self.transout = keras.layers.Dense(out_dim)
+        self.ctxt_dim = int(ctxt_dim)
+        self.num_heads = int(num_heads)
+        self.out_dim = int(out_dim)
+        self.dropout = float(dropout)
+        self.dense_nodes = int(dense_nodes)
+        if out_dim % num_heads != 0:
+            raise ValueError(
+                "out_dim must be divisible by num_heads"
+            )
+        key_dim = self.out_dim // self.num_heads
+        self.atn_self = HeadScaledMultiHeadAttention(num_heads = self.num_heads, output_shape = self.out_dim, key_dim = key_dim, dropout = self.dropout)
+        self.ff_step = keras.layers.Dense(self.dense_nodes, activation = "silu")
+        self.transout = keras.layers.Dense(self.out_dim)
 
         self.norm_layer_atn_1 = keras.layers.LayerNormalization()
         self.norm_layer_atn_2 = keras.layers.LayerNormalization()
@@ -18,8 +26,8 @@ class TransEncoder(keras.layers.Layer):
         self.norm_layer_ff_1 = keras.layers.LayerNormalization()
         self.norm_layer_ff_2 = keras.layers.LayerNormalization()
 
-        self.dropout_1 = keras.layers.Dropout(dropout)
-        self.dropout_2 = keras.layers.Dropout(dropout)
+        self.dropout_1 = keras.layers.Dropout(self.dropout)
+        self.dropout_2 = keras.layers.Dropout(self.dropout)
 
     def call(self, inputs, attention_mask = None, training = False):
         norm_inps = self.norm_layer_atn_1(inputs)
@@ -38,17 +46,37 @@ class TransEncoder(keras.layers.Layer):
         ff = self.dropout_2(ff, training = training)
 
         return x + ff
+    
+    def get_config(self):
+        config = super().get_config()
+        config.update({
+            "ctxt_dim": self.ctxt_dim,
+            "num_heads": self.num_heads,
+            "out_dim": self.out_dim,
+            "dropout": self.dropout,
+            "dense_nodes": self.dense_nodes
+            })
+        return config
+
 
 @keras.saving.register_keras_serializable()
 class TransDecoder(keras.layers.Layer):
     def __init__(self, ctxt_dim = 0, num_heads = 16, out_dim = 32, dropout = 0.0, dense_nodes = 128, **kwargs):
         super().__init__(**kwargs)
-        key_dim = out_dim // num_heads
-        self.ctxt_dim = ctxt_dim
-        self.atn_self = HeadScaledMultiHeadAttention(num_heads = num_heads, output_shape = out_dim, key_dim = key_dim, dropout = dropout)
-        self.atn_cross = HeadScaledMultiHeadAttention(num_heads = num_heads, output_shape = out_dim, key_dim = key_dim, dropout = dropout)
-        self.ff_step = keras.layers.Dense(dense_nodes, activation = "silu")
-        self.transout = keras.layers.Dense(out_dim)
+        self.ctxt_dim = int(ctxt_dim)
+        self.num_heads = int(num_heads)
+        self.out_dim = int(out_dim)
+        self.dropout = float(dropout)
+        self.dense_nodes = int(dense_nodes)
+        if out_dim % num_heads != 0:
+            raise ValueError(
+                "out_dim must be divisible by num_heads"
+            )
+        key_dim = self.out_dim // self.num_heads
+        self.atn_self = HeadScaledMultiHeadAttention(num_heads = self.num_heads, output_shape = self.out_dim, key_dim = key_dim, dropout = self.dropout)
+        self.atn_cross = HeadScaledMultiHeadAttention(num_heads = self.num_heads, output_shape = self.out_dim, key_dim = key_dim, dropout = self.dropout)
+        self.ff_step = keras.layers.Dense(self.dense_nodes, activation = "silu")
+        self.transout = keras.layers.Dense(self.out_dim)
 
         self.norm_layer_atn_self_1 = keras.layers.LayerNormalization()
         self.norm_layer_atn_self_2 = keras.layers.LayerNormalization()
@@ -59,9 +87,9 @@ class TransDecoder(keras.layers.Layer):
         self.norm_layer_ff_1 = keras.layers.LayerNormalization()
         self.norm_layer_ff_2 = keras.layers.LayerNormalization()
 
-        self.dropout_self = keras.layers.Dropout(dropout)
-        self.dropout_cross = keras.layers.Dropout(dropout)
-        self.dropout_2 = keras.layers.Dropout(dropout)
+        self.dropout_self = keras.layers.Dropout(self.dropout)
+        self.dropout_cross = keras.layers.Dropout(self.dropout)
+        self.dropout_2 = keras.layers.Dropout(self.dropout)
 
     def call(self, inputs, enc_output, self_attention_mask = None, cross_attention_mask = None, training = False):
 
@@ -94,3 +122,13 @@ class TransDecoder(keras.layers.Layer):
         ff = self.dropout_2(ff, training = training)
 
         return x + ff
+    def get_config(self):
+        config = super().get_config()
+        config.update({
+            "ctxt_dim": self.ctxt_dim,
+            "num_heads": self.num_heads,
+            "out_dim": self.out_dim,
+            "dropout": self.dropout,
+            "dense_nodes": self.dense_nodes
+            })
+        return config
