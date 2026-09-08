@@ -67,17 +67,20 @@ class VQVAE(keras.Model):
 
 
 
-        self.encoder_input = keras.layers.Dense(self.hidden_dim)
-        self.quantizer = VectorQuantizerEMA(num_embeddings = 2048, embedding_dim = self.latent_dim, commitment_cost = 0.25, decay = 0.9)
+        self.encoder_input = keras.layers.Dense(self.hidden_dim, name = "encoder_input")
 #        self.quantizer = VectorQuantizer(num_embeddings = 2048, embedding_dim = self.latent_dim, beta = 0.25)
         self.transencoder = []
         self.transdecoder = []
         for i in range(self.n_transf):
             self.transencoder.append(TransEncoder(out_dim = self.hidden_dim, num_heads = self.num_heads, name = "transEncoder_" +str(i)))
-            self.transdecoder.append(TransEncoder(out_dim = self.hidden_dim, num_heads = self.num_heads, name = "transDecoder_" + str(i)))
 
         self.to_latent = keras.layers.Dense(self.latent_dim)
+        self.quantizer = VectorQuantizerEMA(num_embeddings = 2048, embedding_dim = self.latent_dim, commitment_cost = 0.25, decay = 0.9)
         self.decoder_input = keras.layers.Dense(self.hidden_dim)
+
+        for i in range(self.n_transf):
+            self.transdecoder.append(TransEncoder(out_dim = self.hidden_dim, num_heads = self.num_heads, name = "transDecoder_" + str(i)))
+
         self.output_projection = keras.layers.Dense(self.original_dim)
 
 
@@ -180,6 +183,15 @@ class VQVAE(keras.Model):
                     })
         return config
 
+    def compute_output_shape(self, input_shape):
+        input_shape = tuple(input_shape)
+
+        return {
+            "reco": input_shape[:-1] + (
+                self.original_dim,
+            ),
+            "encoding_indices": input_shape[:-1],
+        }
 
 
 

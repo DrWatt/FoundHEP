@@ -1,3 +1,4 @@
+import math
 import keras
 
 
@@ -258,3 +259,21 @@ class VectorQuantizerEMA(keras.layers.Layer):
                     "epsilon": self.epsilon
                     })
         return config
+    def compute_output_shape(self, input_shape):
+        input_shape = tuple(input_shape)
+        leading_shape = input_shape[:-1]
+
+        if any(dim is None for dim in leading_shape):
+            flat_size = None
+        else:
+            flat_size = math.prod(leading_shape)
+
+        return {
+            "quantize": input_shape,
+            "perplexity": (),
+            "encodings": (
+                flat_size,
+                self.num_embeddings,
+            ),
+            "encoding_indices": leading_shape,
+        }

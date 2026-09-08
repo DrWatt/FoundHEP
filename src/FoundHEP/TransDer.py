@@ -57,6 +57,8 @@ class TransEncoder(keras.layers.Layer):
             "dense_nodes": self.dense_nodes
             })
         return config
+    def compute_output_shape(self, input_shape):
+        return input_shape
 
 
 @keras.saving.register_keras_serializable()
@@ -132,3 +134,5 @@ class TransDecoder(keras.layers.Layer):
             "dense_nodes": self.dense_nodes
             })
         return config
+    def compute_output_shape(self,input_shape, enc_output_shape = None):
+        return input_shape
