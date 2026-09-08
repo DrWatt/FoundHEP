@@ -75,7 +75,7 @@ class VQVAE(keras.Model):
             self.transencoder.append(TransEncoder(out_dim = self.hidden_dim, num_heads = self.num_heads, name = "transEncoder_" +str(i)))
 
         self.to_latent = keras.layers.Dense(self.latent_dim)
-        self.quantizer = VectorQuantizerEMA(num_embeddings = 2048, embedding_dim = self.latent_dim, commitment_cost = 0.25, decay = 0.9)
+        self.quantizer = VectorQuantizerEMA(num_embeddings = 512, embedding_dim = self.latent_dim, commitment_cost = 0.25, decay = 0.99)
         self.decoder_input = keras.layers.Dense(self.hidden_dim)
 
         for i in range(self.n_transf):

@@ -7,9 +7,9 @@ import keras
 class VectorQuantizer(keras.layers.Layer):
     def __init__(self, num_embeddings, embedding_dim, beta = 0.25, **kwargs):
         super().__init__(**kwargs)
-        self.embedding_dim = embedding_dim
-        self.num_embeddings = num_embeddings
-        self.beta = beta ## The `beta` parameter is best kept between [0.25, 2] as per the paper.
+        self.embedding_dim = int(embedding_dim)
+        self.num_embeddings = int(num_embeddings)
+        self.beta = float(beta) ## The `beta` parameter is best kept between [0.25, 2] as per the paper.
         
         # Initialize the embeddings codebook
         self.embeddings = self.add_weight(shape = (self.embedding_dim, self.num_embeddings),
