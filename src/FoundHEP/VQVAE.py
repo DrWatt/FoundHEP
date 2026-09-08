@@ -119,7 +119,8 @@ class VQVAE(keras.Model):
         #self.add_loss(kl_loss)
         return {
                 "reco": self.output_projection(dec_x),
-                "encoding_indices": vq_output["encoding_indices"]
+                "encoding_indices": vq_output["encoding_indices"],
+                "perplexity": vq_output["perplexity"]
                 }
     
 
