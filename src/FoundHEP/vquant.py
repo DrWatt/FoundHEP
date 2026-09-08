@@ -196,8 +196,10 @@ class VectorQuantizerEMA(keras.layers.Layer):
             smoothed_cluster_size = ((updated_ema_cluster_size + self.epsilon) / (total_count + self.num_embeddings * self.epsilon) * total_count)
 
             updated_embeddings = (updated_dw / keras.ops.expand_dims(smoothed_cluster_size, axis= 0))
+            assigned_now = keras.ops.expand_dims(updated_ema_cluster_size > 0, axis = 0)
+            updated_embeddings = keras.ops.where(assigned_now, updated_embeddings,self.embeddings)
 
-            self.embeddings.assign(updated_embeddings)
+            #self.embeddings.assign(updated_embeddings)
         
         quantized = (inputs + keras.ops.stop_gradient(quantized - inputs))
         avg_probs = keras.ops.mean(encodings, axis = 0)
