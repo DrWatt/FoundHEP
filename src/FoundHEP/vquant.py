@@ -72,10 +72,12 @@ class ExponentialMovingAverage(keras.layers.Layer):
         one = keras.ops.cast(1.0, dtype)
 
         self._counter.assign(self._counter + keras.ops.cast(1, "int64"))
+
+        counter = keras.ops.cast(self._counter, dtype)
         
         new_hidden = (decay * self._hidden + (one - decay) * value)
 
-        new_average = keras.ops.divide_no_nan(new_hidden, (one - keras.ops.power(decay, self._counter)))
+        new_average = keras.ops.divide_no_nan(new_hidden, (one - keras.ops.power(decay, counter)))
 
         self._hidden.assign(new_hidden)
         self._average.assign(new_average)
@@ -161,10 +163,10 @@ class VectorQuantizerEMA(keras.layers.Layer):
         
         encoding_indices = self.get_code_indices(flat_inputs)
 
-        #encoding_indices = keras.ops.reshape(encoding_indices, input_shape[:-1])
+
 
         encodings = keras.ops.one_hot(encoding_indices, self.num_embeddings)
-
+        encoding_indices = keras.ops.reshape(encoding_indices, input_shape[:-1])
         quantized = keras.ops.matmul(encodings, keras.ops.transpose(self.embeddings))
         quantized = keras.ops.reshape(quantized, input_shape)
         e_latent_loss = keras.ops.mean((keras.ops.stop_gradient(quantized) - inputs) ** 2)

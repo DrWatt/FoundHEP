@@ -73,8 +73,8 @@ class VQVAE(keras.Model):
         self.transencoder = []
         self.transdecoder = []
         for i in range(n_transf):
-            self.transencoder.append(TransEncoder(out_dim = hidden_dim, num_heads = 16))
-            self.transdecoder.append(TransEncoder(out_dim = hidden_dim, num_heads = 16))
+            self.transencoder.append(TransEncoder(out_dim = hidden_dim, num_heads = 16, name = "transEncoder_" +str(i)))
+            self.transdecoder.append(TransEncoder(out_dim = hidden_dim, num_heads = 16, name = "transDecoder_" + str(i)))
 
         self.to_latent = keras.layers.Dense(latent_dim)
         self.decoder_input = keras.layers.Dense(hidden_dim)
