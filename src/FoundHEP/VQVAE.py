@@ -56,7 +56,7 @@ class Decoder(keras.layers.Layer):
 
 class VQVAE(keras.Model):
     
-    def __init__(self, original_dim, hidden_dim= 64, latent_dim = 32,train_variance=1.0, name = "vae", **kwargs):
+    def __init__(self, original_dim, hidden_dim= 64, latent_dim = 32,train_variance=1.0, n_transf = 1, name = "vae", **kwargs):
         super().__init__(name = name, **kwargs)
         #data = np.load("/home/marco/FoundHEP/dataset.npy")
         #
@@ -70,10 +70,14 @@ class VQVAE(keras.Model):
 #        self.quantizer = VectorQuantizer(num_embeddings = 2048, embedding_dim = latent_dim, beta = 0.25)
 #        self.decoder = Decoder(original_dim)
 #        self.sampling = Sampling()
-        self.transencoder = TransEncoder(out_dim = hidden_dim, num_heads = 16)
+        self.transencoder = []
+        self.transdecoder = []
+        for i in range(n_transf):
+            self.transencoder.append(TransEncoder(out_dim = hidden_dim, num_heads = 16))
+            self.transdecoder.append(TransEncoder(out_dim = hidden_dim, num_heads = 16))
+
         self.to_latent = keras.layers.Dense(latent_dim)
         self.decoder_input = keras.layers.Dense(hidden_dim)
-        self.transdecoder = TransEncoder(out_dim = hidden_dim, num_heads = 16)
         self.output_projection = keras.layers.Dense(original_dim)
 
 
@@ -95,13 +99,15 @@ class VQVAE(keras.Model):
 
         x = self.encoder_input(inputs)
 
-        encoded_input = self.transencoder(x, attention_mask = attention_mask, training=training)
-        z_e = self.to_latent(encoded_input)
+        for enc in self.transencoder:
+            x = enc(x, attention_mask = attention_mask, training=training)
+        z_e = self.to_latent(x)
         vq_output = self.quantizer(z_e, training = training)
         embedded_input = vq_output["quantize"]
-        embedded_input = self.decoder_input(embedded_input)
+        dec_x = self.decoder_input(embedded_input)
 
-        decoded_latent = self.transdecoder(embedded_input, attention_mask = attention_mask, training = training)
+        for dec in self.transdecoder:
+            dec_x = dec(dec_x, attention_mask = attention_mask, training = training)
         #z_mean, z_log_var= self.encoder(x)
         #z = self.sampling((z_mean, z_log_var))
         #reco = self.decoder(z)
@@ -109,7 +115,7 @@ class VQVAE(keras.Model):
         #kl_loss = -0.5 * keras.ops.mean(z_log_var - keras.ops.square(z_mean) - keras.ops.exp(z_log_var) + 1)
         #self.add_loss(kl_loss)
         return {
-                "reco": self.output_projection(decoded_latent),
+                "reco": self.output_projection(dec_x),
                 "encoding_indices": vq_output["encoding_indices"]
                 }
     
