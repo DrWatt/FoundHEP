@@ -56,16 +56,18 @@ class Decoder(keras.layers.Layer):
 
 class VQVAE(keras.Model):
     
-    def __init__(self, original_dim, hidden_dim= 64, latent_dim = 32, name = "vae", **kwargs):
+    def __init__(self, original_dim, hidden_dim= 64, latent_dim = 32,train_variance=1.0, name = "vae", **kwargs):
         super().__init__(name = name, **kwargs)
         #data = np.load("/home/marco/FoundHEP/dataset.npy")
         #
         #print(data.shape)
         #print(data[0])
         self.original_dim = original_dim
+        self.train_variance = train_variance
 #        self.encoder = Encoder()
         self.encoder_input = keras.layers.Dense(hidden_dim)
         self.quantizer = VectorQuantizerEMA(num_embeddings = 2048, embedding_dim = latent_dim, commitment_cost = 0.25, decay = 0.9)
+#        self.quantizer = VectorQuantizer(num_embeddings = 2048, embedding_dim = latent_dim, beta = 0.25)
 #        self.decoder = Decoder(original_dim)
 #        self.sampling = Sampling()
         self.transencoder = TransEncoder(out_dim = hidden_dim, num_heads = 16)
@@ -74,14 +76,29 @@ class VQVAE(keras.Model):
         self.transdecoder = TransEncoder(out_dim = hidden_dim, num_heads = 16)
         self.output_projection = keras.layers.Dense(original_dim)
 
-    def call(self, inputs, attention_mask = None, training = None):
+
+
+        self.total_loss_tracker = keras.metrics.Mean(name = "total_loss")
+        self.reco_loss_tracker = keras.metrics.Mean(name = "reco_loss")
+        self.vq_loss_tracker = keras.metrics.Mean(name = "vq_loss")
+
+
+    @property
+    def metrics(self):
+        return [
+                self.total_loss_tracker,
+                self.reco_loss_tracker,
+                self.vq_loss_tracker
+                ]
+
+    def call(self, inputs, attention_mask = None, training = False):
 
         x = self.encoder_input(inputs)
 
         encoded_input = self.transencoder(x, attention_mask = attention_mask, training=training)
         z_e = self.to_latent(encoded_input)
-        embedded_input = self.quantizer(z_e, training = training)["quantize"]
-
+        vq_output = self.quantizer(z_e, training = training)
+        embedded_input = vq_output["quantize"]
         embedded_input = self.decoder_input(embedded_input)
 
         decoded_latent = self.transdecoder(embedded_input, attention_mask = attention_mask, training = training)
@@ -91,12 +108,56 @@ class VQVAE(keras.Model):
 
         #kl_loss = -0.5 * keras.ops.mean(z_log_var - keras.ops.square(z_mean) - keras.ops.exp(z_log_var) + 1)
         #self.add_loss(kl_loss)
-        return self.output_projection(decoded_latent)
+        return {
+                "reco": self.output_projection(decoded_latent),
+                "encoding_indices": vq_output["encoding_indices"]
+                }
     
 
 
 
+    def compute_loss(
+        self,
+        x=None,
+        y=None,
+        y_pred=None,
+        sample_weight=None,
+        training=True,
+    ):
+        reconstructions = y_pred["reco"]
 
+        # Allows both:
+        # model.fit(x)
+        # model.fit(x, y)
+        targets = x if y is None else y
+
+        reconstruction_loss = keras.ops.mean(
+            keras.ops.square(targets - reconstructions)
+        )
+
+        reconstruction_loss = reconstruction_loss / (
+            self.train_variance + 1e-7
+        )
+
+        if self.losses:
+            vq_loss = keras.ops.sum(
+                keras.ops.stack(self.losses)
+            )
+        else:
+            vq_loss = keras.ops.zeros(
+                (),
+                dtype=reconstructions.dtype,
+            )
+
+        total_loss = reconstruction_loss + vq_loss
+
+        self.total_loss_tracker.update_state(total_loss)
+        self.reco_loss_tracker.update_state(
+            reconstruction_loss
+        )
+        self.vq_loss_tracker.update_state(vq_loss)
+
+        return total_loss
 
 
 

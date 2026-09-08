@@ -40,10 +40,13 @@ class VectorQuantizer(keras.layers.Layer):
         codebook_loss = keras.ops.mean((quantized - keras.ops.stop_gradient(inputs)) **2)
         self.add_loss(self.beta * commitment_loss + codebook_loss)
 
-        quantized = x + keras.ops.stop_gradient(quantized - x)
+        quantized = inputs + keras.ops.stop_gradient(quantized - inputs)
 
         # RETURN BOTH: The quantized tensor and the indices
-        return [quantized, encoding_indices]
+        return {
+                "quantize" : quantized,
+                "encoding_indices": encoding_indices,
+                }
 
 @keras.saving.register_keras_serializable()
 class ExponentialMovingAverage(keras.layers.Layer):
@@ -58,20 +61,21 @@ class ExponentialMovingAverage(keras.layers.Layer):
         self._hidden = self.add_weight(shape = self._shape, initializer = "zeros", trainable = False, name = "hidden")
         self._average = self.add_weight(shape = self._shape, initializer = "zeros", trainable = False, name = "average")
 
-        self._decay = keras.ops.cast(self._decay, self._hidden.dtype)
 
     def call(self, value):
         dtype = self._hidden.dtype
         value = keras.ops.cast(value, dtype)
         value = keras.ops.stop_gradient(value)
 
+        decay = keras.ops.cast(self._decay, self._hidden.dtype)
+
         one = keras.ops.cast(1.0, dtype)
 
         self._counter.assign(self._counter + keras.ops.cast(1, "int64"))
         
-        new_hidden = (self._decay * self._hidden + (one - self._decay) * value)
+        new_hidden = (decay * self._hidden + (one - decay) * value)
 
-        new_average = keras.ops.divide_no_nan(new_hidden, (one - keras.ops.power(self._decay, self._counter)))
+        new_average = keras.ops.divide_no_nan(new_hidden, (one - keras.ops.power(decay, self._counter)))
 
         self._hidden.assign(new_hidden)
         self._average.assign(new_average)
@@ -157,7 +161,7 @@ class VectorQuantizerEMA(keras.layers.Layer):
         
         encoding_indices = self.get_code_indices(flat_inputs)
 
-        encoding_indices = keras.ops.reshape(encoding_indices, input_shape[:-1])
+        #encoding_indices = keras.ops.reshape(encoding_indices, input_shape[:-1])
 
         encodings = keras.ops.one_hot(encoding_indices, self.num_embeddings)
 
@@ -176,7 +180,7 @@ class VectorQuantizerEMA(keras.layers.Layer):
 
             total_count = keras.ops.sum(updated_ema_cluster_size)
 
-            smoothed_cluster_size = ((updated_ema_cluster_size + self.epsilon) / (total_count + self.num_embeddings + self.epsilon) * total_count)
+            smoothed_cluster_size = ((updated_ema_cluster_size + self.epsilon) / (total_count + self.num_embeddings * self.epsilon) * total_count)
 
             updated_embeddings = (updated_dw / keras.ops.expand_dims(smoothed_cluster_size, axis= 0))
 
